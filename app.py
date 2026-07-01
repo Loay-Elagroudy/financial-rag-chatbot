@@ -1,24 +1,20 @@
 import streamlit as st
-import os
 import pandas as pd
-from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
-from google import genai
+from langchain_groq import ChatGroq
 
 # إعدادات واجهة المستخدم
 st.set_page_config(page_title="Complaints Analytics RAG", page_icon="🤖", layout="centered")
 st.title("🤖 Consumer Complaints RAG Chatbot")
-st.markdown("### Milestone 5 — Live Analytics Dashboard")
+st.markdown("### Milestone 5 — Live Analytics Dashboard (Ultra-Fast Mode)")
 
-# سحب الـ API Key من إعدادات سيرفر Streamlit الآمنة أو استخدام الـ Key المباشر كـ Fallback
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
+# سحب المفتاح السري المظبوط من الـ Secrets
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
 @st.cache_resource
 def init_resources():
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    
-    # قراءة الداتا
+    # 1. قراءة الداتا النظيفة والمصغرة
     df = pd.read_csv("mini_processed_corpus.csv").head(5000)
     df = df.dropna(subset=['rag_document'])
     
@@ -30,17 +26,21 @@ def init_resources():
         )
         documents.append(doc)
     
-    vector_store = Chroma.from_documents(documents=documents, embedding=embeddings)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+    # 2. بناء Retriever سريع جداً ومستقر
+    retriever = BM25Retriever.from_documents(documents)
+    retriever.k = 3
     
-    # هنا التعديل الجذري: تمرير المفتاح مباشرة جوه الكلاينت بدون الاعتماد على الـ Environment variables
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-    return retriever, client
+    # 3. استدعاء موديل Llama 3 عبر Groq بالمفتاح الصحيح
+    llm = ChatGroq(
+        groq_api_key=GROQ_API_KEY,
+        model_name="llama-3.1-8b-instant",
+        temperature=0.2
+    )
+    return retriever, llm
 
 try:
-    with st.spinner("Initializing Live Vector Database..."):
-        retriever, client = init_resources()
-    st.success("RAG System Active & Database Connected Live!")
+    retriever, llm = init_resources()
+    st.success("🚀 RAG System Active & Database Connected Instantly!")
 except Exception as e:
     st.error(f"Initialization Error: {e}")
 
@@ -58,7 +58,7 @@ if user_query := st.chat_input("Type your question here..."):
     st.session_state.messages.append({"role": "user", "content": user_query})
     
     with st.chat_message("assistant"):
-        with st.spinner("Searching database & generating answer..."):
+        with st.spinner("Searching database & generating answer via Groq..."):
             docs = retriever.invoke(user_query)
             context = "\n\n".join(doc.page_content for doc in docs)
             
@@ -72,12 +72,8 @@ if user_query := st.chat_input("Type your question here..."):
             )
             
             try:
-                # استخدام الموديل المستقر القياسي
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=full_prompt,
-                )
-                answer = response.text
+                response = llm.invoke(full_prompt)
+                answer = response.content
             except Exception as e:
                 answer = f"Error generating response: {e}"
                 
