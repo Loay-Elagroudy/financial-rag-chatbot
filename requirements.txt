@@ -1,7 +1,6 @@
 streamlit
 langchain-core
 langchain-community
-langchain-chroma
-sentence-transformers
 langchain-groq
 pandas
+rank_bm25
