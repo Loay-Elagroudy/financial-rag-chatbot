@@ -12,7 +12,7 @@ st.title("🤖 Consumer Complaints RAG Chatbot")
 st.markdown("### Milestone 5 — Live Analytics Dashboard")
 
 # سحب الـ API Key من إعدادات سيرفر Streamlit الآمنة أو استخدام الـ Key المباشر كـ Fallback
-GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY", "AQ.Ab8RN6L_XFsIs2rEVzid13Zm-7vFUKU62v5F6r2GUSO5u0La_g")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 
 @st.cache_resource
 def init_resources():
